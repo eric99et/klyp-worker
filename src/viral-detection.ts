@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
-import type { Transcript } from './types'
+import fs from 'fs'
+import type { Transcript, TranscriptSegment } from './types'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
