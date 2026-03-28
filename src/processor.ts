@@ -95,15 +95,40 @@ export async function processVideo(
     fs.rmSync(workDir, { recursive: true, force: true })
   }
 }
-
 async function downloadFile(url: string, destPath: string): Promise<void> {
-  const response = await fetch(url)
+  console.log('[Worker] Downloading:', url)
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${process.env.WORKER_SECRET}`,
+    },
+  })
+
+  console.log('[Worker] Download status:', response.status)
+  console.log('[Worker] Content-Type:', response.headers.get('content-type'))
+  console.log('[Worker] Content-Length:', response.headers.get('content-length'))
+
   if (!response.ok) {
     throw new Error(`Failed to download file: ${response.status} ${response.statusText}`)
   }
 
-  const buffer = await response.arrayBuffer()
-  fs.writeFileSync(destPath, Buffer.from(buffer))
+  const contentType = response.headers.get('content-type') || ''
+
+  if (!contentType.startsWith('video/')) {
+    const preview = await response.text()
+    console.error('[Worker] Non-video response preview:', preview.slice(0, 500))
+    throw new Error(`Downloaded file is not a video. Content-Type: ${contentType}`)
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer())
+  fs.writeFileSync(destPath, buffer)
+
+  const stats = fs.statSync(destPath)
+  console.log('[Worker] Downloaded file size:', stats.size)
+
+  if (stats.size < 100000) {
+    throw new Error(`Downloaded file too small: ${stats.size} bytes`)
+  }
 }
 
 function getSegmentTranscript(
